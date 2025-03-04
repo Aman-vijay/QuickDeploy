@@ -1,19 +1,28 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router';
 import { Github } from 'lucide-react';
-import { Button } from '../components/Buttons'; // Import the custom Button
+import { Button } from '../components/Buttons';
 
 const Login = () => {
   const [isLoading, setIsLoading] = useState(false);
-  const navigate = useNavigate();
+  const clientId = import.meta.env.VITE_GITHUB_CLIENT_ID;
+
+  const array = new Uint8Array(16);
+  window.crypto.getRandomValues(array);
+  const state = Array.from(array, (byte) =>
+    byte.toString(16).padStart(2, '0')
+  ).join('');
+
+  const redirectUri = `${window.location.origin}/integrations/github/oauth2/callback`;
+  const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&response_type=code&scope=repo&redirect_uri=${encodeURIComponent(
+    redirectUri
+  )}&state=${state}`;
 
   const handleGithubLogin = () => {
     setIsLoading(true);
-    // Simulate API call for GitHub OAuth
-    setTimeout(() => {
-      setIsLoading(false);
-      navigate('/dashboard');
-    }, 1500);
+    localStorage.setItem('latestCSRFToken', state); // Set state before redirect
+    console.log('Generated State:', state);
+    console.log('Redirecting to:', authUrl);
+    window.location.assign(authUrl);
   };
 
   return (
@@ -37,7 +46,6 @@ const Login = () => {
               <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4 text-center">
                 Connect with your GitHub account to continue
               </p>
-
               <Button
                 variant="primary"
                 size="lg"
@@ -74,26 +82,16 @@ const Login = () => {
                 Sign in with GitHub
               </Button>
             </div>
-
-            <div className="mt-6">
-              {/* Empty div from your original code—remove or add content if needed */}
-            </div>
           </div>
 
           <div className="mt-6">
             <p className="mt-2 text-center text-xs text-gray-600 dark:text-gray-400">
               By signing in, you agree to our{' '}
-              <a
-                href="#"
-                className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400"
-              >
+              <a href="#" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
                 Terms of Service
               </a>{' '}
               and{' '}
-              <a
-                href="#"
-                className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400"
-              >
+              <a href="#" className="font-medium text-blue-600 hover:text-blue-500 dark:text-blue-400">
                 Privacy Policy
               </a>
             </p>
