@@ -20,6 +20,7 @@ export const handleGitHubCallback = async (req: Request, res: Response) => {
   }
 
   try {
+    // Get access token from GitHub
     const tokenResponse = await axios.post(
       'https://github.com/login/oauth/access_token',
       {
@@ -27,12 +28,12 @@ export const handleGitHubCallback = async (req: Request, res: Response) => {
         client_secret: clientSecret,
         code,
       },
-      { headers: { Accept: 'application/json',
-        "Content-Type": "application/json"
-        
-       } 
-       
-    }
+      {
+        headers: { 
+          Accept: 'application/json',
+          "Content-Type": "application/json"
+        }
+      }
     );
 
     const accessToken = tokenResponse.data.access_token;
@@ -41,28 +42,52 @@ export const handleGitHubCallback = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Failed to obtain access token' });
     }
 
-    const userResponse = await axios.get('https://api.github.com/user', {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    // Get user data and emails in parallel
+    const [userResponse, emailsResponse] = await Promise.all([
+      axios.get('https://api.github.com/user', {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      }),
+      axios.get('https://api.github.com/user/emails', {
+        headers: { Authorization: `Bearer ${accessToken}` }
+      })
+    ]);
 
     const userData = userResponse.data;
+    const emails = emailsResponse.data;
 
+    // Find the primary verified email
+    const primaryEmailObj = emails.find(
+      (email: any) => email.primary && email.verified
+    );
+    const userEmail = primaryEmailObj ? primaryEmailObj.email : null;
+
+    // Create or update user
     let user = await User.findOne({ githubId: userData.id });
     if (!user) {
       user = new User({
         githubId: userData.id,
         username: userData.login,
-        email: userData.email || null,
+        email: userEmail,
         avatarUrl: userData.avatar_url || null,
-        githubToken: accessToken, // Store token for later use (encrypt in production)
+        githubToken: accessToken,
       });
     } else {
-      user.githubToken = accessToken; // Update token
+      user.githubToken = accessToken;
+      // Update email if not set and we have a new value
+      if (!user.email && userEmail) {
+        user.email = userEmail;
+      }
     }
     await user.save();
 
+    // Create JWT token
     const token = jwt.sign(
-      { id: user._id, githubId: user.githubId, username: user.username },
+      { 
+        id: user._id, 
+        githubId: user.githubId, 
+        username: user.username,
+        email: user.email
+      },
       jwtSecret,
       { expiresIn: '1h' }
     );
@@ -83,6 +108,7 @@ export const handleGitHubCallback = async (req: Request, res: Response) => {
   }
 };
 
+// Keep the rest of the controller methods the same
 export const getUserInfo = async (req: Request, res: Response) => {
   try {
     const user = await User.findById(req.user?.id);
