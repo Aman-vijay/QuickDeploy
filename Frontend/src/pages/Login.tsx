@@ -13,9 +13,9 @@ const Login = () => {
   ).join('');
 
   const redirectUri = `${window.location.origin}/integrations/github/oauth2/callback`;
-  const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&response_type=code&scope=repo&redirect_uri=${encodeURIComponent(
-    redirectUri
-  )}&state=${state}`;
+  const authUrl = `https://github.com/login/oauth/authorize?client_id=${clientId}&response_type=code&scope=repo user:email&redirect_uri=${encodeURIComponent(
+  redirectUri
+)}&state=${state}`;
 
   const handleGithubLogin = () => {
     setIsLoading(true);
